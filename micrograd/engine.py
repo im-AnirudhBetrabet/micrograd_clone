@@ -59,9 +59,39 @@ class Value:
                 visited.add(v)
                 for child in v._prev:
                     _build_topology(child)
-            topo.append(v)
+                topo.append(v)
         _build_topology(self)
         self.grad = 1.0
 
         for node in reversed(topo):
             node._backward()
+
+    def __rmul__(self, other):
+        return self * other
+
+    def __truediv__(self, other):
+        return self * (other ** -1)
+
+    def __pow__(self, other):
+        assert isinstance(other, (int, float)), "only supports integer and floating point powers."
+        out = Value(math.pow(self.data, other), (self, ), f'**{other}')
+
+        def _backward():
+            self.grad += other * (self.data ** (other - 1)) * out.grad
+        out._backward = _backward
+        return out
+
+    def exp(self):
+        x = self.data
+        out = Value(math.exp(x), (self, ), "exp")
+
+        def _backward():
+            self.grad += out.data * out.grad
+        out._backward = _backward
+        return out
+
+    def __neg__(self):
+        return self * -1
+
+    def __sub__(self, other):
+        return self + (-other)
