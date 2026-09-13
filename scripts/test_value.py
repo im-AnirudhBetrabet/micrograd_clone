@@ -10,12 +10,16 @@ d.label = "D"
 
 e = d + c
 e.label = "E"
-
+o = e.tanh(); o.label = 'O'
 print(f"a = {a}")
 print(f"b = {b}")
 print(f"c = {c}")
 print(f"d = {d}")
 print(f"e = {e}")
+print(f"o = {o}")
 
-dot = draw_dot(e)
+o.backward()
+
+
+dot = draw_dot(o)
 dot.render("test_chain_operation", view=True)
