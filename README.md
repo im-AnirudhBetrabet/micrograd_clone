@@ -1,6 +1,6 @@
 # Micrograd — Learning Neural Networks from Scratch
 
-A small educational implementation inspired by Andrej Karpathy's **micrograd**.
+A small educational implementation inspired by Andrej Karpathy's **[micrograd](https://github.com/karpathy/micrograd.git)**.
 
 The goal of this project is not to build a production-ready deep-learning framework. Instead, it is an exercise in understanding what happens underneath a neural network by implementing the core mechanics from scratch.
 
