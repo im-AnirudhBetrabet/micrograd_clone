@@ -1,6 +1,7 @@
 from micrograd.neuron import Neuron
+from micrograd.Base   import Base
 
-class Layer:
+class Layer(Base):
     def __init__(self, nin, nout):
         self.neurons = [Neuron(nin) for _ in range(nout)]
 

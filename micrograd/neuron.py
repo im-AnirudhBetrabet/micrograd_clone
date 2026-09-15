@@ -1,8 +1,9 @@
 import random
 
 from micrograd.engine import Value
+from micrograd.Base   import Base
 
-class Neuron:
+class Neuron(Base):
     def __init__(self, nin):
         self.w = [Value(random.uniform(-1, 1)) for _ in range(nin)]
         self.b = Value(random.uniform(-1, 1))

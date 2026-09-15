@@ -2,8 +2,8 @@
 
 """
 import math
-
-class Value:
+from micrograd.Base import Base
+class Value(Base):
     def __init__(self, data, _children = (), _op = '', label =""):
         self.data      = data
         self.grad      = 0.0            # stores the gradient

@@ -1,351 +1,548 @@
-# Micrograd Clone
+# Micrograd — Learning Neural Networks from Scratch
 
-A small autograd engine built from scratch in Python, inspired by [Andrej Karpathy's micrograd](https://github.com/karpathy/micrograd).
+A small educational implementation inspired by Andrej Karpathy's **micrograd**.
 
-The goal of this project is not just to reproduce micrograd, but to understand **how automatic differentiation and backpropagation actually work under the hood**.
+The goal of this project is not to build a production-ready deep-learning framework. Instead, it is an exercise in understanding what happens underneath a neural network by implementing the core mechanics from scratch.
 
-Instead of relying on existing deep-learning frameworks, this project builds the core pieces manually — from constructing a computation graph to calculating gradients using the chain rule.
+The project starts with scalar arithmetic and builds all the way up to a trainable multi-layer perceptron:
+
+```text
+Scalar values
+      ↓
+Computation graph
+      ↓
+Automatic differentiation
+      ↓
+Backpropagation
+      ↓
+Neuron
+      ↓
+Layer
+      ↓
+MLP
+      ↓
+Loss
+      ↓
+Gradient descent
+      ↓
+Training
+```
 
 ---
 
-## 🧠 What is this?
+## What I implemented
 
-At its core, the project revolves around a `Value` object.
+The project currently includes:
 
-A `Value` stores:
+* A scalar `Value` class
+* Computation-graph construction
+* Reverse-mode automatic differentiation
+* Backpropagation using the chain rule
+* Gradient accumulation
+* Basic mathematical operations
+* `tanh` activation
+* Neurons and layers
+* A multi-layer perceptron
+* Mean squared error loss
+* Gradient-descent optimization
+* Configurable learning rate and number of epochs
+* Numerical gradient checking
+* Computation-graph visualization
+* Training-loss visualization
+* An XOR learning example
 
-* A scalar numerical value (`data`)
-* Its gradient (`grad`)
-* The nodes it was derived from (`_prev`)
-* The operation that produced it (`_op`)
-* A label for visualization/debugging
-* A `_backward()` function that knows how to propagate gradients
+The implementation uses scalar values rather than tensors, intentionally keeping the underlying mechanics visible.
+
+---
+
+## Project structure
+
+```text
+micrograd/
+│
+├── micrograd/
+│   ├── __init__.py
+│   ├── Base.py
+│   ├── engine.py
+│   ├── neuron.py
+│   ├── layer.py
+│   ├── mlp.py
+│   └── DrawDot.py
+│
+├── scripts/
+│   ├── __init__.py
+│   ├── test_value.py
+│   ├── test_gradient.py
+│   ├── learn_xor.py
+│   └── experiments.py
+│
+├── gradients.jpeg
+├── XOR_gradient_descent_curve.jpeg
+├── test_graph.svg
+├── test_mlp.svg
+├── requirements.txt
+└── README.md
+```
+
+### `micrograd/engine.py`
+
+Contains the `Value` class, which is the core of the project.
+
+Each `Value` stores:
+
+* `data` — the scalar value
+* `grad` — the accumulated gradient
+* `_prev` — previous nodes in the computation graph
+* `_op` — the operation that produced the value
+* `label` — an optional label for graph visualization
+* `_backward` — the local backward function
+
+Supported operations include:
+
+* addition
+* multiplication
+* subtraction
+* division
+* negation
+* powers
+* exponential
+* hyperbolic tangent
+* reverse addition
+* reverse multiplication
+* reverse subtraction
+* reverse division
+
+Calling `backward()` creates a topological ordering of the graph and traverses it in reverse to propagate gradients.
+
+### `micrograd/neuron.py`
+
+Implements a single neuron.
+
+A neuron:
+
+1. initializes weights and a bias
+2. calculates the weighted sum
+
+```text
+w₁x₁ + w₂x₂ + ... + wₙxₙ + b
+```
+
+3. applies `tanh`
+4. exposes its trainable parameters
+
+### `micrograd/layer.py`
+
+A layer is a collection of neurons.
 
 For example:
 
 ```python
-a = Value(2, label="A")
-b = Value(-3, label="B")
-c = Value(10, label="C")
-
-d = a * b
-d.label = "D"
-
-e = d + c
-e.label = "E"
-
-o = e.tanh()
-o.label = "O"
-
-o.backward()
+Layer(3, 4)
 ```
 
-This creates a computation graph:
+creates four neurons, each accepting three inputs.
+
+### `micrograd/mlp.py`
+
+Implements a multi-layer perceptron.
+
+For example:
+
+```python
+MLP(2, [3, 1])
+```
+
+creates:
 
 ```text
-      A ─────┐
-             │
-             × ──── D ────┐
-             │             │
-      B ─────┘             │
-                           +
-      C ───────────────────┘
-                           │
-                           E
-                           │
-                         tanh
-                           │
-                           O
+2 inputs
+   ↓
+3 neurons
+   ↓
+1 neuron
+```
+
+The MLP supports:
+
+* forward propagation
+* parameter collection
+* mean squared error
+* gradient descent
+* configurable learning rate
+* configurable training epochs
+* loss tracking
+
+The training loop is intentionally simple:
+
+```text
+flush gradients
+      ↓
+forward pass
+      ↓
+calculate loss
+      ↓
+backward pass
+      ↓
+update parameters
+      ↓
+repeat
+```
+
+### `micrograd/DrawDot.py`
+
+Provides computation-graph visualization using Graphviz.
+
+The generated graph displays the values, operations, and gradients involved in a computation.
+
+---
+
+# Automatic differentiation
+
+The central idea behind the project is that every mathematical operation creates another `Value` and connects it to the values that produced it.
+
+For example:
+
+```python
+a = Value(2.0)
+b = Value(3.0)
+
+c = a * b
+d = c + a
+```
+
+Conceptually:
+
+```text
+a ───────┐
+         × ──→ c ──→ + ──→ d
+b ───────┘          ↑
+                    a
 ```
 
 Calling:
 
 ```python
-o.backward()
+d.backward()
 ```
 
-propagates gradients backwards through this graph using the **chain rule**.
-
----
-
-## ✨ Current Features
-
-The current implementation supports:
-
-* Scalar `Value` objects
-* Computation graph construction
-* Addition
-* Multiplication
-* Powers
-* Exponential
-* Hyperbolic tangent (`tanh`)
-* Gradient accumulation
-* Topological sorting for backpropagation
-* Automatic differentiation
-* Computation graph visualization using Graphviz
-
-### Supported operations
-
-```python
-a + b
-a * b
-a ** n
-a.exp()
-a.tanh()
-a / b
-```
-
----
-
-## 🔬 Example
-
-Consider:
-
-```python
-a = Value(2.0, label="A")
-b = Value(-3.0, label="B")
-c = Value(10.0, label="C")
-
-d = a * b
-d.label = "D"
-
-e = d + c
-e.label = "E"
-
-o = e.tanh()
-o.label = "O"
-
-o.backward()
-```
-
-The forward pass calculates:
+starts with:
 
 ```text
-D = A × B
-  = 2 × -3
-  = -6
-
-E = D + C
-  = -6 + 10
-  = 4
-
-O = tanh(E)
-  ≈ 0.999329
+d.grad = 1
 ```
 
-The backward pass then calculates the gradient of `O` with respect to every node in the graph.
+and propagates gradients backward using the chain rule.
+
+An important part of the implementation is gradient accumulation.
 
 For example:
 
-```text
-O.grad = 1
-E.grad ≈ 0.001341
-D.grad ≈ 0.001341
-C.grad ≈ 0.001341
-A.grad ≈ -0.004023
-B.grad ≈ 0.002682
+```python
+a = Value(2.0)
+out = a + a
+
+out.backward()
 ```
 
-This demonstrates the basic mechanics behind reverse-mode automatic differentiation.
+produces:
+
+```text
+a.grad = 2
+```
+
+rather than `1`, because the same value influences the output through two paths.
 
 ---
 
-## 📊 Computation Graph Visualization
+# Gradient descent
 
-The project includes a small Graphviz-based visualization utility.
+Once the loss has been calculated and `backward()` has populated the gradients, each trainable parameter is updated using:
 
 ```python
-from micrograd.DrawDot import draw_dot
-
-dot = draw_dot(o)
-dot.render("graph", view=True)
+p.data -= learning_rate * p.grad
 ```
 
-The generated graph displays each `Value` along with:
-
-* Label
-* Data
-* Gradient
-
-This makes it easier to see exactly how values and gradients flow through the computation graph.
-
----
-
-## 🧪 Tests
-
-The project includes a collection of tests covering:
-
-* Basic arithmetic
-* Forward-pass calculations
-* Backpropagation
-* Gradient calculations
-* Reusing the same variable multiple times
-* Self multiplication
-* Power operations
-* Exponential operations
-* More complex computation graphs
-* Graph rendering
-
-Run the test suite with:
-
-```bash
-python -m scripts.test_value
-```
-
-The tests are designed not only to check whether the numerical results are correct, but also to validate the underlying gradient propagation.
-
----
-
-## 📁 Project Structure
+Conceptually:
 
 ```text
-micrograd_clone/
-│
-├── micrograd/
-│   ├── __init__.py
-│   ├── engine.py
-│   └── DrawDot.py
-│
-├── scripts/
-│   └── test_value.py
-│
-├── .gitignore
-├── requirements.txt
-└── README.md
+new parameter
+    =
+old parameter
+    -
+learning rate × gradient
 ```
 
-### `engine.py`
+The training process therefore connects the two main ideas behind learning:
 
-Contains the core `Value` class and the automatic differentiation engine.
-
-### `DrawDot.py`
-
-Contains utilities for tracing and visualizing the computation graph.
-
-### `test_value.py`
-
-Contains tests used to validate the forward and backward passes.
+```text
+Backpropagation
+      ↓
+Calculate gradients
+      ↓
+Gradient descent
+      ↓
+Update parameters
+      ↓
+Lower loss
+```
 
 ---
 
-## ⚙️ Setup
+# Loss function
 
-Clone the repository and create a virtual environment:
+The current implementation uses mean squared error:
 
-```bash
-git clone https://github.com/im-AnirudhBetrabet/micrograd_clone.git
-
-cd micrograd_clone
-
-python -m venv .venv
+```text
+MSE = average((prediction - target)²)
 ```
 
-Activate the virtual environment on Windows:
+The loss is constructed from `Value` operations, so it remains part of the computation graph and can be differentiated automatically.
 
-```bash
-.venv\Scripts\activate
+---
+
+# Numerical gradient checking
+
+One of the goals of the project was to verify that the manually implemented backpropagation actually produces the correct gradients.
+
+The project therefore compares:
+
+```text
+Analytical gradient
+       vs
+Numerical gradient
 ```
 
-Install the Python dependencies:
+using a central finite-difference approximation:
+
+```text
+f'(x) ≈ (f(x + ε) - f(x - ε)) / (2ε)
+```
+
+For the validation example, the analytical and numerical gradients agree to approximately:
+
+```text
+5.66 × 10⁻¹¹
+```
+
+The test uses an assertion so that a significant disagreement causes the test to fail.
+
+This provides an independent check of the automatic-differentiation implementation.
+
+---
+
+# Learning XOR
+
+The project uses the classic XOR problem as a small end-to-end demonstration.
+
+```text
+Input       Target
+------------------
+[0, 0]        0
+[0, 1]        1
+[1, 0]        1
+[1, 1]        0
+```
+
+The network used for the experiment is:
+
+```text
+2 → 3 → 1
+```
+
+with `tanh` activations.
+
+The training configuration is:
+
+```text
+Learning rate = 0.05
+Epochs        = 10,000
+Random seed   = 42
+```
+
+The experiment reduced the MSE from approximately:
+
+```text
+1.2913
+```
+
+to:
+
+```text
+0.000208
+```
+
+The final predictions were approximately:
+
+```text
+[0, 0] → 0.00023
+[0, 1] → 0.97941
+[1, 0] → 0.97980
+[1, 1] → 0.00089
+```
+
+The result demonstrates that the implementation can use its own automatic differentiation and gradient-descent machinery to learn the XOR mapping.
+
+---
+
+# Visualizations
+
+The repository includes visualizations of the computation graph and training process.
+
+### Computation graph
+
+`test_graph.svg` and `test_mlp.svg` show how individual `Value` objects and operations form a differentiable computation graph.
+
+### Gradient descent
+
+`XOR_gradient_descent_curve.jpeg` shows the reduction in training loss over the course of the XOR experiment.
+
+`gradients.jpeg` provides another view of loss during training.
+
+---
+
+# Experiments
+
+`experiments.py` explores how different training configurations affect optimization.
+
+The experiments investigate:
+
+### Number of epochs
+
+Comparing shorter and longer training runs demonstrates how additional gradient-descent updates affect convergence.
+
+### Random initialization
+
+Repeated experiments demonstrate that different random initializations can produce different training trajectories and results.
+
+### Learning rate
+
+The project compares different learning rates to observe their effect on the speed and behavior of optimization.
+
+A controlled comparison uses the same random seed while changing only the learning rate, making the comparison more meaningful.
+
+---
+
+# Tests
+
+The project contains tests for the core automatic-differentiation engine.
+
+The test suite covers:
+
+1. basic forward operations
+2. backpropagation through a computation graph
+3. repeated use of the same variable
+4. multiplication of a variable by itself
+5. power operations
+6. exponential operations
+7. complex computation graphs
+8. computation-graph rendering
+
+The repeated-variable and self-multiplication tests are particularly useful because they verify that gradients from multiple paths are accumulated correctly.
+
+The numerical gradient test provides an additional independent validation of the autograd engine.
+
+---
+
+# Running the project
+
+Clone the repository and install the Python dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Graph visualization also requires the **Graphviz executable** to be installed and available on your system `PATH`.
+Because the project uses a package structure, run the scripts as modules from the repository root:
 
-Verify the installation with:
+### Run the autograd tests
 
 ```bash
-dot -V
+python -m scripts.test_value
+```
+
+### Run the numerical gradient check
+
+```bash
+python -m scripts.test_gradient
+```
+
+### Train the XOR network
+
+```bash
+python -m scripts.learn_xor
+```
+
+### Run the training experiments
+
+```bash
+python -m scripts.experiments
 ```
 
 ---
 
-## 🚧 Project Status
+# Current limitations
 
-This project is currently a **work in progress**.
+This is intentionally a small educational implementation.
 
-The focus is on understanding the fundamental concepts behind automatic differentiation rather than building a production-ready machine-learning framework.
+It does not currently aim to provide:
 
-### Roadmap
+* tensors
+* NumPy/vectorized computation
+* GPU support
+* minibatches
+* advanced optimizers such as Adam
+* serialization/checkpointing
+* production-grade numerical stability
+* sophisticated parameter initialization
+* a production-level testing framework
 
-* [x] Create scalar `Value` class
-* [x] Build computation graphs
-* [x] Implement addition
-* [x] Implement multiplication
-* [x] Implement powers
-* [x] Implement exponential
-* [x] Implement `tanh`
-* [x] Implement gradient propagation
-* [x] Implement topological ordering
-* [x] Implement graph visualization
-* [x] Add basic test suite
-* [ ] Expand operator support
-* [ ] Add more comprehensive gradient tests
-* [ ] Build neurons using `Value`
-* [ ] Build layers
-* [ ] Build a simple MLP
-* [ ] Train a small neural network from scratch
+These limitations are deliberate.
+
+Keeping the implementation small makes it easier to inspect the computation graph, understand the chain rule, and see exactly how gradients flow through the network.
 
 ---
 
-## 🎯 Why build this?
+# What I learned
 
-Modern frameworks such as PyTorch make automatic differentiation incredibly easy to use:
+The most important lesson from this project is that a neural network is ultimately a large computation graph.
 
-```python
-loss.backward()
-```
-
-But that one line hides a lot of interesting mathematics and engineering.
-
-This project is an attempt to understand what happens behind that line.
-
-The core idea is simple:
-
-> Build a computation graph → apply the chain rule → propagate gradients backwards.
-
-Understanding these fundamentals makes concepts such as:
-
-* Backpropagation
-* Computational graphs
-* Automatic differentiation
-* Gradient descent
-* Neural-network training
-
-much less of a black box.
-
----
-
-## 🙏 Inspiration
-
-This project is inspired by **Andrej Karpathy's micrograd**, a tiny scalar-valued automatic differentiation engine.
-
-The implementation is being built incrementally as a learning exercise, with the goal of understanding the ideas behind the original project rather than simply treating the code as something to copy.
-
----
-
-## 📌 Learning Goal
-
-The ultimate goal of this project is to go from:
+The progression became much clearer when implemented from the bottom up:
 
 ```text
-scalar arithmetic
+Scalar arithmetic
       ↓
-computation graphs
+Computation graph
       ↓
-automatic differentiation
+Local derivatives
       ↓
-backpropagation
+Chain rule
       ↓
-neurons
+Reverse-mode autodiff
       ↓
-layers
+Neuron
+      ↓
+Layer
       ↓
 MLP
       ↓
-training a neural network
+Loss
+      ↓
+Gradient descent
+      ↓
+Training
 ```
 
-—all implemented from scratch in Python.
+Instead of treating backpropagation as a black box, this project made it possible to see how the chain rule is applied repeatedly across a computation graph to calculate the gradients required for learning.
+
+---
+
+# Philosophy
+
+The purpose of this repository is **learning by implementation**.
+
+Rather than starting with a high-level neural-network library, the project starts with scalar values and builds upward.
+
+The objective is not to recreate PyTorch.
+
+The objective is to understand **why neural networks work**.
+
+Inspired by Andrej Karpathy's `micrograd` and the philosophy of learning by building the underlying mechanisms from scratch.
